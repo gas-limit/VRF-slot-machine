@@ -36,126 +36,18 @@ contract SlotMachineRouter is VRFConsumerBaseV2  {
   address USDC = 0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174;
   address USDT = 0xc2132D05D31c914a87C6611C10748AEb04B58e8F;
 
-  constructor(uint _entryFee, string memory _priceFeedAddress, uint64 subscriptionId, address _vrfCoordinator, bytes32 _keyHash) VRFConsumerBaseV2(vrfCoordinator) {
-    entryFee = _entryFee;
-    priceFeedAddress = _priceFeedAddress;
-    COORDINATOR = VRFCoordinatorV2Interface(vrfCoordinator);
-    s_subscriptionId = subscriptionId;
-    vrfCoordinator = _vrfCoordinator;
-    keyHash = _keyHash;
-    owner = payable(msg.sender);
-  }
-
-    //deposit MATIC
-   function depositETH() public payable {
-       (,int price,,,) = priceFeed.latestRoundData();
-        uint chainlinkPrice = uint(price);
-        uint chainlinkPriceTo4Digits = chainlinkPrice / 10 ** 4;
-        uint amountWei = msg.value * chainlinkPriceTo4Digits;
-        amountWei = amountWei / 10 ** 4;
-        uint amountETH = amountWei / 1 ether;
-        userBalance[msg.sender] = amountETH;
-  }
-
   //deposit ERC20
   // 1 = DAI, 2 = USDC, 3 = USDT
 
-  mapping(address => address) public userERC20Choice;
-
-  function approveERC20Deposit(uint8 _choice) public returns (bool) {   
-    if(_choice == 1){
-      if (userERC20Choice[msg.sender] != DAI)
-      {
-        userERC20Choice[msg.sender] == DAI;
-      }
-    }
-    else if(_choice == 2){
-      if (userERC20Choice[msg.sender] != USDC){
-      userERC20Choice[msg.sender] == USDC;
-      }
-    }
-    else if(_choice ==3){
-      if (userERC20Choice[msg.sender] != USDT){
-      userERC20Choice[msg.sender] == USDT;
-      }
-    }
-
-  return IERC20(userERC20Choice[msg.sender]).approve(address(this), entryFee * 1 ether );
-   
-  }
-
-  function depositERC20(uint amount) public {
-    IERC20(userERC20Choice[msg.sender]).transfer(address(this), amount);
-    userBalance[msg.sender] = amount / 1 ether;
-  }
-
-  function ownerWithdraw() public {
-    require(msg.sender == owner);
-
-    owner.transfer(address(this).balance);
-    IERC20(DAI).approve(owner,  IERC20(DAI).balanceOf(address(this)));
-    IERC20(USDC).approve(owner, IERC20(USDC).balanceOf(address(this)));
-    IERC20(USDT).approve(owner, IERC20(USDT).balanceOf(address(this)));
-
-    IERC20(DAI).transfer(owner,  IERC20(DAI).balanceOf(address(this)));
-    IERC20(USDC).transfer(owner, IERC20(USDC).balanceOf(address(this)));
-    IERC20(USDT).transfer(owner, IERC20(USDT).balanceOf(address(this)));      
-  }
-
-/* ☆♬○♩●♪✧♩☆♬○♩●♪✧♩☆♬○♩●♪✧♩☆♬○♩●♪✧♩　Play Game (*triple H Theme*)　♩✧♪●♩○♬☆♩✧♪●♩○♬☆♩✧♪●♩○♬☆♩✧♪●♩○♬☆*/
-    // play game function
-    function playGame() public {
-
-      //require entry fee is paid
-      require(userBalance[msg.sender] >= entryFee);
-      userBalance[msg.sender] - entryFee;
-
-      //reset mappings for the frontend
-      delete addressToSlot1[msg.sender];
-      delete addressToSlot2[msg.sender];
-      delete addressToSlot3[msg.sender];
-      delete addressToBalance[msg.sender];
-
-      //request random numbers
-      requestRandomWords();
-      //fullFillRandomWords() is called by Chainlink which completes our game
-        
-    }
-/* ☆♬○♩●♪✧♩☆♬○♩●♪✧♩☆♬○♩●♪✧♩☆♬○♩●♪✧♩　End of game　♩✧♪●♩○♬☆♩✧♪●♩○♬☆♩✧♪●♩○♬☆♩✧♪●♩○♬☆*/
-
-
-
-// =!=!=!=!=!=!=!=!=!=! CHAINLINK PricefeedV3 St00f =!=!=!=!=!=!=!=!=!=!=!=!=!=!=!
-
   string priceFeedAddress;
-  AggregatorV3Interface internal priceFeed;
 
-  //this function calculates the cost in ether to play the game
-  //the entry fee is denominated in dollars
-  function getEntryFee() public view returns (uint) {
-        //get ETH latest price
-        (,int price,,,) = priceFeed.latestRoundData();
-        //multiply price to prepare for division
-        uint ETHprice = uint(price*10**18);
-        //multiply dollar cost to prepare for division
-        uint minDollars = entryFee * 10 ** 18;
-        //calculate cost in ether
-        uint fee = ((minDollars*10**18)/ETHprice) * 10 ** 8;
+    AggregatorV3Interface internal priceFeed;
 
-        return fee;
-  }
-
-
-//=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!
-
-  
-/* ｡･:*:･ﾟ★,｡･:*:･ﾟ☆　CHAINLINK VRF STUFF  ｡･:*:･ﾟ★,｡･:*:･ﾟ☆｡･:*:･ﾟ★,｡･:*:･ﾟ☆　　 ｡･:*:･ﾟ★,｡･:*:･ﾟ☆*/
     //coordinator object
     VRFCoordinatorV2Interface COORDINATOR;
-        // Your subscription ID.
+    // Your subscription ID.
     uint64 s_subscriptionId;
-        //vrfCoordinator address of VRFCoordinator contract
-    address public vrfCoordinator;
+
     // ID of public key against which randomness is generated
     bytes32 public keyHash;
 
@@ -176,123 +68,19 @@ contract SlotMachineRouter is VRFConsumerBaseV2  {
     //mapping to reference the address in fulfillrandomwords()
     mapping(uint256 => address) public s_requestIdToAddress;
 
-    // Assumes the subscription is funded sufficiently.
-  function requestRandomWords() internal {
-    // Will revert if subscription is not set and funded.
-    uint256 requestId = COORDINATOR.requestRandomWords(
-      keyHash,
-      s_subscriptionId,
-      requestConfirmations,
-      callbackGasLimit,
-      numWords
-    );
-    //mapping to pass address over to fulfillRandomWords
-    s_requestIdToAddress[requestId] = msg.sender;
-  }
-/*♥*♡∞:｡.｡♥*♡∞:｡.｡♥*♡∞:｡.｡　FULFILL RANDOM WORDS　｡.｡:∞♡*♥｡.｡:∞♡*♥｡.｡:∞♡*♥       < ---------- */
-  function fulfillRandomWords(
-    uint256 requestId, 
-    uint256[] memory randomWords
-  ) internal override {
+    mapping (address => uint256[]) public  userToRequestArray; 
 
-    address payable player = payable(s_requestIdToAddress[requestId]);
-
-    //Get random words between 1 and 5
-    uint256 slot1 = (randomWords[0] % 5) + 1;
-    uint256 slot2 = (randomWords[1] % 5) + 1;
-    uint256 slot3 = (randomWords[2] % 5) + 1;
-
-    //sets the frontend mappings
-    addressToSlot1[s_requestIdToAddress[requestId]] = slot1;
-    addressToSlot2[s_requestIdToAddress[requestId]] = slot2;
-    addressToSlot3[s_requestIdToAddress[requestId]] = slot3;
-
-   //The Game
-   if (slot1 == 1 && slot2 == 1 && slot3 == 1) {
-    //Jackpot #1
-    player.transfer(1 ether);
-    addressToBalance[msg.sender] = 1 ether;
-
-  }
-  else if((slot1 == 1 && slot2 == 1) || (slot2 == 1 && slot3 == 2))
-  {
-    //if two 1's are next to eachother
-    player.transfer(0.1 ether);
-    addressToBalance[msg.sender] = 0.1 ether;
-  }
-  else if(slot1 == 2 && slot2 == 2 && slot3 == 2) {
-    //Jackpot #2
-    player.transfer(2 ether);
-    addressToBalance[msg.sender] = 2 ether;
-  }
-  else if((slot1 == 2 && slot2 == 2) || (slot2 == 2 && slot3 == 2) ){
-    //if two 2's are next to eachother
-    player.transfer(0.2 ether);
-    addressToBalance[msg.sender] = 0.2 ether;
-  }
-  else if(slot1 == 3 && slot2 == 3 && slot3 == 3) {
-    //Jackpot #3
-    player.transfer(3 ether);
-    addressToBalance[msg.sender] = 3 ether;
-  }
-  else if((slot1 == 3 && slot2 == 3) || (slot2 == 3 && slot3 == 3) ){
-    //if two 3's are next to eachother
-    player.transfer(0.3 ether);
-    addressToBalance[msg.sender] = 0.3 ether;
-  }
-  else if(slot1 == 4 && slot2 == 4 && slot3 == 4) {
-    //Jackpot #4
-    player.transfer(4 ether);
-    addressToBalance[msg.sender] = 4 ether;
-  }
-  else if((slot1 == 4 && slot2 == 4) || (slot2 == 4 && slot3 == 4) ){
-    //if two 4's are next to eachother
-    player.transfer(0.4 ether);
-    addressToBalance[msg.sender] = 0.4 ether;
-  }
-  else if(slot1 == 5 && slot2 == 5 && slot3 == 5) {
-    //Jackpot #5
-    player.transfer(5 ether);
-    addressToBalance[msg.sender] = 5 ether;
-  }
-  else if((slot1 == 5 && slot2 == 5) || (slot2 == 5 && slot3 == 5) ){
-    //if two 5's are next to eachother
-    player.transfer(0.5 ether);
-    addressToBalance[msg.sender] = 0.5 ether;
-  }
-  else{
-       
-  }
-
-  }
-
-/*♥*♡∞:｡.｡♥*♡∞:｡.｡♥*♡∞:｡.｡　END OF FULFILL RANDOM WORDS　｡.｡:∞♡*♥｡.｡:∞♡*♥｡.｡:∞♡*♥ */
-
-/* ｡･:*:･ﾟ★,｡･:*:･ﾟ☆　END OF CHAINLINK VRF STUFF  ｡･:*:･ﾟ★,｡･:*:･ﾟ☆｡･:*:･ﾟ★,｡･:*:･ﾟ☆　　 ｡･:*:･ﾟ★,｡･:*:･ﾟ☆*/
-
-    /* ============Some data to help the frontend =====================*/
-    mapping (address => uint256) addressToSlot1;
-    mapping (address => uint256) addressToSlot2;
-    mapping (address => uint256) addressToSlot3;
     mapping (address => uint256) addressToBalance;
 
-    function getSlot1(address _address) public view returns (uint256) {
-      return addressToSlot1[_address];
-    }
+    mapping (address => uint256) addressToWinnings;
 
-    function getSlot2(address _address) public view returns (uint256) {
-      return addressToSlot2[_address];
-    }
+    mapping(uint256 => gameData) requestIdToGameData;
 
-    function getSlot3(address _address) public view returns (uint256) {
-      return addressToSlot3[_address];
+    struct gameData {
+        uint256 slot1;
+        uint256 slot2;
+        uint256 slot3;
     }
-
-    function getBalance(address _address) public view returns (uint256) {
-      return addressToBalance[_address];
-    }
-
-    //==================================================================
 
     //events 🎪
     event GameStarted(address indexed _from, uint _value);
@@ -307,6 +95,183 @@ contract SlotMachineRouter is VRFConsumerBaseV2  {
     event Jackpot5(address indexed _from);
     event Two5s(address indexed _from);
     event Lose(address indexed _from);
+
+
+  constructor(uint _entryFee, string memory _priceFeedAddress, uint64 subscriptionId, address _vrfCoordinator, bytes32 _keyHash) VRFConsumerBaseV2(_vrfCoordinator) {
+    entryFee = _entryFee;
+    priceFeedAddress = _priceFeedAddress;
+    COORDINATOR = VRFCoordinatorV2Interface(_vrfCoordinator);
+    s_subscriptionId = subscriptionId;
+    keyHash = _keyHash;
+    owner = payable(msg.sender);
+  }
+
+    //deposit MATIC
+   function depositETH() public payable {
+       (,int price,,,) = priceFeed.latestRoundData();
+        uint chainlinkPrice = uint(price);
+        uint chainlinkPriceTo4Digits = chainlinkPrice / 10 ** 4;
+        uint amountWei = msg.value * chainlinkPriceTo4Digits;
+        amountWei = amountWei / 10 ** 4;
+        uint amountETH = amountWei / 1 ether;
+        userBalance[msg.sender] += amountETH;
+  }
+
+  function depositERC20(uint amount, address token) public {
+    require(token == DAI || token == USDC || token == USDT);
+    IERC20(token).transferFrom(msg.sender, address(this), amount);
+    userBalance[msg.sender] += amount;
+   }
+
+  function ownerWithdraw() public {
+    require(msg.sender == owner);
+    owner.transfer(address(this).balance);
+    IERC20(DAI).transfer(owner,  IERC20(DAI).balanceOf(address(this)));
+    IERC20(USDC).transfer(owner, IERC20(USDC).balanceOf(address(this)));
+    IERC20(USDT).transfer(owner, IERC20(USDT).balanceOf(address(this)));      
+  }
+
+  function userWithdraw() public {
+
+  }
+
+/* ☆♬○♩●♪✧♩☆♬○♩●♪✧♩☆♬○♩●♪✧♩☆♬○♩●♪✧♩　Play Game (*triple H Theme*)　♩✧♪●♩○♬☆♩✧♪●♩○♬☆♩✧♪●♩○♬☆♩✧♪●♩○♬☆*/
+    // play game function
+    function playGame() public {
+
+      //require entry fee is paid
+      require(userBalance[msg.sender] >= entryFee);
+      userBalance[msg.sender] - entryFee;
+
+      //request random numbers
+      requestRandomWords();
+      //fullFillRandomWords() is called by Chainlink which completes our game
+        
+    }
+/* ☆♬○♩●♪✧♩☆♬○♩●♪✧♩☆♬○♩●♪✧♩☆♬○♩●♪✧♩　End of game　♩✧♪●♩○♬☆♩✧♪●♩○♬☆♩✧♪●♩○♬☆♩✧♪●♩○♬☆*/
+
+
+
+// =!=!=!=!=!=!=!=!=!=! CHAINLINK PricefeedV3 St00f =!=!=!=!=!=!=!=!=!=!=!=!=!=!=!
+
+  //this function calculates the cost in ether to play the game
+  //the entry fee is denominated in dollars
+  function getEntryFeeMATIC() public view returns (uint) {
+        //get ETH latest price
+        (,int price,,,) = priceFeed.latestRoundData();
+        //multiply price to prepare for division
+        uint ETHprice = uint(price*10**18);
+        //multiply dollar cost to prepare for division
+        uint minDollars = entryFee * 10 ** 18;
+        //calculate cost in ether
+        uint fee = ((minDollars*10**18)/ETHprice) * 10 ** 8;
+
+        return fee;
+  }
+
+
+//=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!
+
+  
+/* ｡･:*:･ﾟ★,｡･:*:･ﾟ☆　CHAINLINK VRF STUFF  ｡･:*:･ﾟ★,｡･:*:･ﾟ☆｡･:*:･ﾟ★,｡･:*:･ﾟ☆　　 ｡･:*:･ﾟ★,｡･:*:･ﾟ☆*/
+
+    // Assumes the subscription is funded sufficiently.
+  function requestRandomWords() internal {
+    // Will revert if subscription is not set and funded.
+    uint256 requestId = COORDINATOR.requestRandomWords(
+      keyHash,
+      s_subscriptionId,
+      requestConfirmations,
+      callbackGasLimit,
+      numWords
+    );
+    //mapping to pass address over to fulfillRandomWords
+    s_requestIdToAddress[requestId] = msg.sender;
+  }
+/*♥*♡∞:｡.｡♥*♡∞:｡.｡♥*♡∞:｡.｡　FULFILL RANDOM WORDS　｡.｡:∞♡*♥｡.｡:∞♡*♥｡.｡:∞♡*♥       < ---------- */
+
+  function fulfillRandomWords(
+    uint256 requestId, 
+    uint256[] memory randomWords
+  ) internal override {
+
+      require(msg.sender == address(COORDINATOR), "not vrf");
+
+    //Get random words between 1 and 5
+    uint256 slot1 = (randomWords[0] % 5) + 1;
+    uint256 slot2 = (randomWords[1] % 5) + 1;
+    uint256 slot3 = (randomWords[2] % 5) + 1;
+
+    //sets the frontend mappings
+    requestIdToGameData[requestId] = gameData(slot1, slot2, slot3);
+
+   //The Game
+   if (slot1 == 1 && slot2 == 1 && slot3 == 1) {
+    //Jackpot #1
+    addressToWinnings[msg.sender] += 1 ether;
+
+  }
+  else if((slot1 == 1 && slot2 == 1) || (slot2 == 1 && slot3 == 2))
+  {
+    //if two 1's are next to eachother
+    addressToWinnings[msg.sender] += 0.1 ether;
+  }
+  else if(slot1 == 2 && slot2 == 2 && slot3 == 2) {
+    //Jackpot #2
+    addressToWinnings[msg.sender] += 2 ether;
+  }
+  else if((slot1 == 2 && slot2 == 2) || (slot2 == 2 && slot3 == 2) ){
+    //if two 2's are next to eachother
+    addressToWinnings[msg.sender] += 0.2 ether;
+  }
+  else if(slot1 == 3 && slot2 == 3 && slot3 == 3) {
+    //Jackpot #3
+    addressToWinnings[msg.sender] += 3 ether;
+  }
+  else if((slot1 == 3 && slot2 == 3) || (slot2 == 3 && slot3 == 3) ){
+    //if two 3's are next to eachother
+    addressToWinnings[msg.sender] += 0.3 ether;
+  }
+  else if(slot1 == 4 && slot2 == 4 && slot3 == 4) {
+    //Jackpot #4
+    addressToWinnings[msg.sender] += 4 ether;
+  }
+  else if((slot1 == 4 && slot2 == 4) || (slot2 == 4 && slot3 == 4) ){
+    //if two 4's are next to eachother
+    addressToWinnings[msg.sender] += 0.4 ether;
+  }
+  else if(slot1 == 5 && slot2 == 5 && slot3 == 5) {
+    //Jackpot #5
+    addressToWinnings[msg.sender] += 5 ether;
+  }
+  else if((slot1 == 5 && slot2 == 5) || (slot2 == 5 && slot3 == 5) ){
+    //if two 5's are next to eachother
+    addressToWinnings[msg.sender] += 0.5 ether;
+  }
+  else{
+       
+  }
+
+  }
+
+/*♥*♡∞:｡.｡♥*♡∞:｡.｡♥*♡∞:｡.｡　END OF FULFILL RANDOM WORDS　｡.｡:∞♡*♥｡.｡:∞♡*♥｡.｡:∞♡*♥ */
+
+/* ｡･:*:･ﾟ★,｡･:*:･ﾟ☆　END OF CHAINLINK VRF STUFF  ｡･:*:･ﾟ★,｡･:*:･ﾟ☆｡･:*:･ﾟ★,｡･:*:･ﾟ☆　　 ｡･:*:･ﾟ★,｡･:*:･ﾟ☆*/
+
+    /* ============Some data to help the frontend =====================*/
+
+    function getLastGameData(address _address) public view returns (gameData memory) {
+      uint256 length = userToRequestArray[_address].length;
+      uint256 requestId_ = userToRequestArray[_address][length - 1];
+      gameData memory gameData_ = requestIdToGameData[requestId_];
+      return gameData_;
+    }
+
+    function getBalance(address _address) public view returns (uint256) {
+      return addressToBalance[_address];
+    }
+
+    //==================================================================
 
     
     // Function to receive Ether. msg.data must be empty

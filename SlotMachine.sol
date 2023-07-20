@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 import "@chainlink/contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol";
 import "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
+import "https://github.com/transmissions11/solmate/blob/main/src/auth/Owned.sol";
 
 /*
 A truly random and fair slot machine 🎰
@@ -24,80 +25,68 @@ Made by Josh
 
 
 
-contract SlotMachineRouter is VRFConsumerBaseV2  {
+contract SlotMachineRouter is VRFConsumerBaseV2, Owned  {
 
-  //owner of contract
-  address payable public owner;
+
   //entry fee to play
   uint entryFee;
   //denominated in USD
   mapping(address => uint) public userBalance;
-  address DAI = 0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063;
-  address USDC = 0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174;
-  address USDT = 0xc2132D05D31c914a87C6611C10748AEb04B58e8F;
+  address constant DAI = 0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063;
+  address constant USDC = 0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174;
+  address constant USDT = 0xc2132D05D31c914a87C6611C10748AEb04B58e8F;
 
   //deposit ERC20
   // 1 = DAI, 2 = USDC, 3 = USDT
-
   string priceFeedAddress;
 
-    AggregatorV3Interface internal priceFeed;
+  AggregatorV3Interface internal priceFeed;
 
-    //coordinator object
-    VRFCoordinatorV2Interface COORDINATOR;
-    // Your subscription ID.
-    uint64 s_subscriptionId;
+  //coordinator object
+  VRFCoordinatorV2Interface public COORDINATOR;
+  // Your subscription ID.
+  uint64 public s_subscriptionId;
 
-    // ID of public key against which randomness is generated
-    bytes32 public keyHash;
+  // ID of public key against which randomness is generated
+  bytes32 public keyHash;
 
-    // Depends on the number of requested values that you want sent to the
-    // fulfillRandomWords() function. Storing each word costs about 20,000 gas,
-    // so 100,000 is a safe default for this example contract. Test and adjust
-    // this limit based on the network that you select, the size of the request,
-    // and the processing of the callback request in the fulfillRandomWords()
-    // function.
-    uint32 callbackGasLimit = 100000;
+  uint32 callbackGasLimit = 10e5;
 
-    // The default is 3, but you can set this higher.
-    uint16 requestConfirmations = 3;
+  uint16 requestConfirmations = 3;
 
-      //number of random numbers  
-    uint32 numWords = 3;
+  //mapping to reference the address in fulfillrandomwords()
+  mapping(uint256 => address) public s_requestIdToAddress;
 
-    //mapping to reference the address in fulfillrandomwords()
-    mapping(uint256 => address) public s_requestIdToAddress;
+  mapping (address => uint256[]) public  userToRequestArray; 
 
-    mapping (address => uint256[]) public  userToRequestArray; 
+  mapping (address => uint256) addressToBalance;
 
-    mapping (address => uint256) addressToBalance;
+  mapping (address => uint256) addressToWinnings;
 
-    mapping (address => uint256) addressToWinnings;
+  mapping(uint256 => gameData) requestIdToGameData;
 
-    mapping(uint256 => gameData) requestIdToGameData;
+  struct gameData {
+      uint256 slot1;
+      uint256 slot2;
+      uint256 slot3;
+  }
 
-    struct gameData {
-        uint256 slot1;
-        uint256 slot2;
-        uint256 slot3;
-    }
-
-    //events 🎪
-    event GameStarted(address indexed _from, uint _value);
-    event Jackpot1(address indexed _from);
-    event Two1s(address indexed _from);
-    event Jackpot2(address indexed _from);
-    event Two2s(address indexed _from);
-    event Jackpot3(address indexed _from);
-    event Two3s(address indexed _from);
-    event Jackpot4(address indexed _from);
-    event Two4s(address indexed _from);
-    event Jackpot5(address indexed _from);
-    event Two5s(address indexed _from);
-    event Lose(address indexed _from);
+  //events 🎪
+  event GameStarted(address indexed _from, uint _value);
+  event Jackpot1(address indexed _from);
+  event Two1s(address indexed _from);
+  event Jackpot2(address indexed _from);
+  event Two2s(address indexed _from);
+  event Jackpot3(address indexed _from);
+  event Two3s(address indexed _from);
+  event Jackpot4(address indexed _from);
+  event Two4s(address indexed _from);
+  event Jackpot5(address indexed _from);
+  event Two5s(address indexed _from);
+  event Lose(address indexed _from);
 
 
-  constructor(uint _entryFee, string memory _priceFeedAddress, uint64 subscriptionId, address _vrfCoordinator, bytes32 _keyHash) VRFConsumerBaseV2(_vrfCoordinator) {
+  constructor(uint _entryFee, string memory _priceFeedAddress, uint64 subscriptionId, address _vrfCoordinator, bytes32 _keyHash) Owned(msg.sender) VRFConsumerBaseV2(_vrfCoordinator) {
     entryFee = _entryFee;
     priceFeedAddress = _priceFeedAddress;
     COORDINATOR = VRFCoordinatorV2Interface(_vrfCoordinator);
@@ -124,8 +113,8 @@ contract SlotMachineRouter is VRFConsumerBaseV2  {
    }
 
   function ownerWithdraw() public {
-    require(msg.sender == owner);
-    owner.transfer(address(this).balance);
+    address payable ownerPayable = payable(owner);
+    ownerPayable.transfer(address(this).balance);
     IERC20(DAI).transfer(owner,  IERC20(DAI).balanceOf(address(this)));
     IERC20(USDC).transfer(owner, IERC20(USDC).balanceOf(address(this)));
     IERC20(USDT).transfer(owner, IERC20(USDT).balanceOf(address(this)));      
@@ -183,7 +172,7 @@ contract SlotMachineRouter is VRFConsumerBaseV2  {
       s_subscriptionId,
       requestConfirmations,
       callbackGasLimit,
-      numWords
+      3
     );
     //mapping to pass address over to fulfillRandomWords
     s_requestIdToAddress[requestId] = msg.sender;
@@ -205,48 +194,51 @@ contract SlotMachineRouter is VRFConsumerBaseV2  {
     //sets the frontend mappings
     requestIdToGameData[requestId] = gameData(slot1, slot2, slot3);
 
+    address player = s_requestIdToAddress[requestId];
+    
+
    //The Game
    if (slot1 == 1 && slot2 == 1 && slot3 == 1) {
     //Jackpot #1
-    addressToWinnings[msg.sender] += 1 ether;
+    addressToWinnings[player] += 1 ether;
 
   }
   else if((slot1 == 1 && slot2 == 1) || (slot2 == 1 && slot3 == 2))
   {
     //if two 1's are next to eachother
-    addressToWinnings[msg.sender] += 0.1 ether;
+    addressToWinnings[player] += 0.1 ether;
   }
   else if(slot1 == 2 && slot2 == 2 && slot3 == 2) {
     //Jackpot #2
-    addressToWinnings[msg.sender] += 2 ether;
+    addressToWinnings[player] += 2 ether;
   }
   else if((slot1 == 2 && slot2 == 2) || (slot2 == 2 && slot3 == 2) ){
     //if two 2's are next to eachother
-    addressToWinnings[msg.sender] += 0.2 ether;
+    addressToWinnings[player] += 0.2 ether;
   }
   else if(slot1 == 3 && slot2 == 3 && slot3 == 3) {
     //Jackpot #3
-    addressToWinnings[msg.sender] += 3 ether;
+    addressToWinnings[player] += 3 ether;
   }
   else if((slot1 == 3 && slot2 == 3) || (slot2 == 3 && slot3 == 3) ){
     //if two 3's are next to eachother
-    addressToWinnings[msg.sender] += 0.3 ether;
+    addressToWinnings[player] += 0.3 ether;
   }
   else if(slot1 == 4 && slot2 == 4 && slot3 == 4) {
     //Jackpot #4
-    addressToWinnings[msg.sender] += 4 ether;
+    addressToWinnings[player] += 4 ether;
   }
   else if((slot1 == 4 && slot2 == 4) || (slot2 == 4 && slot3 == 4) ){
     //if two 4's are next to eachother
-    addressToWinnings[msg.sender] += 0.4 ether;
+    addressToWinnings[player] += 0.4 ether;
   }
   else if(slot1 == 5 && slot2 == 5 && slot3 == 5) {
     //Jackpot #5
-    addressToWinnings[msg.sender] += 5 ether;
+    addressToWinnings[player] += 5 ether;
   }
   else if((slot1 == 5 && slot2 == 5) || (slot2 == 5 && slot3 == 5) ){
     //if two 5's are next to eachother
-    addressToWinnings[msg.sender] += 0.5 ether;
+    addressToWinnings[player] += 0.5 ether;
   }
   else{
        
@@ -268,7 +260,7 @@ contract SlotMachineRouter is VRFConsumerBaseV2  {
     }
 
     function getBalance(address _address) public view returns (uint256) {
-      return addressToBalance[_address];
+      return addressToWinnings[_address];
     }
 
     //==================================================================
